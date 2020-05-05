@@ -1,17 +1,19 @@
-import { query as q, Expr, ExprArg } from 'faunadb'
+import { query as q, Expr, ExprArg, Lambda } from 'faunadb'
 import * as shades from 'shades'
+import { Lens } from 'shades'
 export { get, mod, set, all } from 'shades'
 
-// import fn from './fnToLet'
+type FaunaLens = Lens<ExprArg, ExprArg>
+type FaunaTraversal = shades.Traversal<ExprArg>
+type FaunaLensOrTraversal = FaunaLens | FaunaTraversal
+type Projection = {
+  [key: string]: FaunaLensOrTraversal[]
+}
 
 // Modify the Expr class to work be an iterator for shades
-// eslint-disable-next-line
-// @ts-ignore
 Expr.prototype.map = function (f: (o: Expr) => Expr) {
   return q.Map(this, f)
 }
-
-type FaunaLens = shades.Lens<Expr, Expr>
 
 export const append = (): FaunaLens => ({
   get: (arr) => arr,
@@ -52,8 +54,6 @@ export const prop = (name: string, missing: null | [] = null): FaunaLens => ({
     q.Merge(obj, { [name]: f(q.Select(name, obj, missing), ...args) }),
 })
 
-type FaunaLensOrTraversal = shades.Lens<Expr, Expr> | shades.Traversal<Expr>
-
 export const compose = (...lenses: FaunaLensOrTraversal[]): FaunaLens => ({
   get: shades.get(...lenses),
   mod: shades.mod(...lenses),
@@ -72,13 +72,7 @@ export const update = (): FaunaLens => ({
   mod: (f) => (ref, ...args) => q.Update(ref, f(ref, ...args)),
 })
 
-// const isProjection = (o: string | object) => !!o && o.constructor === Object
-
-type Projection = {
-  [key: string]: FaunaLensOrTraversal[]
-}
-
-const viewKeys = (proj: Projection) => (obj: object) =>
+const viewKeys = (proj: Projection) => (obj: ExprArg) =>
   Object.keys(proj).reduce(
     (result, key) => ({
       ...result,
@@ -91,41 +85,41 @@ const viewKeys = (proj: Projection) => (obj: object) =>
 
 export const projection = (...proj: (string | Projection)[]): FaunaLens => ({
   get: (obj) =>
-    proj.reduce(
-      (result, value) =>
-        typeof value === 'string'
-          ? {
-              ...result,
-              [value]: shades.get(prop(value))(obj),
-            }
-          : { ...result, ...viewKeys(value)(obj) },
-      {} as object
+    new Expr(
+      proj.reduce(
+        (result, value) =>
+          typeof value === 'string'
+            ? {
+                ...result,
+                [value]: shades.get(prop(value))(obj),
+              }
+            : { ...result, ...viewKeys(value)(obj) },
+        {} as object
+      )
     ),
   mod: (f) => (obj) => f(obj),
 })
 
-export const Query = (obj: Expr, lenses: FaunaLensOrTraversal[]) => ({
-  obj,
-  // type,
+export const Query = (expr: ExprArg, lenses: FaunaLensOrTraversal[]) => ({
+  expr,
   lenses,
-  all: () => Query(obj, [...lenses, shades.all()]),
-  append: () => Query(obj, [...lenses, append()]),
-  deref: () => Query(obj, [...lenses, deref()]),
-  documents: () => Query(obj, [...lenses, documents()]),
+  all: () => Query(expr, [...lenses, shades.all()]),
+  append: () => Query(expr, [...lenses, append()]),
+  deref: () => Query(expr, [...lenses, deref()]),
+  documents: () => Query(expr, [...lenses, documents()]),
   index: (name: string, ...terms: ExprArg[]) =>
-    Query(obj, [...lenses, index(name, terms)]),
-  // into: (...args) => Query(obj, [...lenses, shades.into(...args)]),
-  paginate: (options?: object) => Query(obj, [...lenses, paginate(options)]),
-  path: (names: string[]) => Query(obj, [...lenses, path(...names)]),
+    Query(expr, [...lenses, index(name, terms)]),
+  paginate: (options?: object) => Query(expr, [...lenses, paginate(options)]),
+  path: (names: string[]) => Query(expr, [...lenses, path(...names)]),
   projection: (...proj: (string | Projection)[]) =>
-    Query(obj, [...lenses, projection(...proj)]),
-  prop: (name: string) => Query(obj, [...lenses, prop(name)]),
-  push: () => Query(obj, [...lenses, push()]),
-  update: () => Query(obj, [...lenses, update()]),
-  use: (lens: FaunaLens) => Query(obj, [...lenses, lens]),
-  get: () => shades.get(...lenses)(obj),
-  mod: (f: Function) => shades.mod(...lenses)(f)(obj),
-  set: (value: any) => shades.set<Expr, Expr>(...lenses)(value)(obj),
+    Query(expr, [...lenses, projection(...proj)]),
+  prop: (name: string) => Query(expr, [...lenses, prop(name)]),
+  push: () => Query(expr, [...lenses, push()]),
+  update: () => Query(expr, [...lenses, update()]),
+  use: (lens: FaunaLens) => Query(expr, [...lenses, lens]),
+  get: () => shades.get(...lenses)(expr),
+  mod: (f: Lambda) => shades.mod(...lenses)(f)(expr),
+  set: (value: any) => shades.set(...lenses)(value)(expr),
 })
 
-Query.from = (obj) => Query(obj, [])
+Query.from = (expr: ExprArg) => Query(expr, [])
