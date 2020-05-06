@@ -1,4 +1,4 @@
-import { Expr, ExprArg, Lambda } from 'faunadb'
+import { Expr, Lambda } from 'faunadb'
 
 declare module 'faunadb' {
   interface Expr {

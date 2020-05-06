@@ -1,9 +1,7 @@
-import { get, set, Lens, Traversal } from 'shades'
-import { Expr, ExprArg, Lambda } from 'faunadb'
+import { get, set } from 'shades'
+import { ExprArg } from 'faunadb'
 
-type FaunaLens = Lens<ExprArg, ExprArg>
-type FaunaTraversal = Traversal<ExprArg>
-type FaunaLensOrTraversal = FaunaLens | FaunaTraversal
+import { FaunaLensOrTraversal } from '../types'
 
 declare module 'shades' {
   export function get(

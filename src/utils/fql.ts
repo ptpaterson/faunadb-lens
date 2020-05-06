@@ -1,4 +1,4 @@
-import { query as q, Expr } from 'faunadb'
+import { query as q, Expr, ExprArg } from 'faunadb'
 import annotate from 'fn-annotate'
 
 /* *****************************************************************************
@@ -16,7 +16,7 @@ type Parameters<T extends (...args: any[]) => any> = T extends (
 // converts a function into a faunaDB Let expression, but allows it to be used,
 // as a regular function.  This allows functions to be composed in JS land and
 // turn out correctly in Fauna land.
-const fnToLet = <T extends (...args: any[]) => any>(fn: T) => (
+export const fnToLet = <T extends (...args: any[]) => ExprArg>(fn: T) => (
   ...args: Parameters<T>
 ): Expr => {
   const params = annotate(fn)
@@ -36,5 +36,3 @@ const fnToLet = <T extends (...args: any[]) => any>(fn: T) => (
 
   return q.Let(bindings, fn(...params.map((param) => q.Var(param))))
 }
-
-export default fnToLet
