@@ -1,13 +1,20 @@
 module.exports = {
+  plugins: ['jest'],
+  env: {
+    browser: true,
+    es6: true,
+    node: true,
+    jest: true,
+  },
   extends: [
-    'plugin:@typescript-eslint/recommended',
-    'prettier/@typescript-eslint',
+    'eslint:recommended',
+    'plugin:jest/recommended',
     'plugin:prettier/recommended',
   ],
-  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    ecmaVersion: 2020,
+  },
   rules: {
-    'no-console': 1,
-    '@typescript-eslint/explicit-function-return-type': 0,
-    '@typescript-eslint/camelcase': 0,
+    'no-console': 'off',
   },
 }

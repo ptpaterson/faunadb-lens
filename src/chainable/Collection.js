@@ -1,34 +1,35 @@
-import { query as q, Expr } from 'faunadb'
-import { Query } from './Query'
-import { fnToLet } from '../utils/fql'
+const { query: q } = require('faunadb')
+const { Query } = require('./Query')
+const { fnToLet } = require('../utils')
 
-export class Collection {
-  name: string
-  ref: Expr
-
-  constructor(name: string) {
+class Collection {
+  constructor(name) {
     this.name = name
     this.ref = q.Collection(name)
   }
 
-  addUniqueField(fieldName: string) {
-    return fnToLet((collectionRef) =>
-      Query.from(
+  addUniqueField(fieldName) {
+    return Query.from(
+      fnToLet((collectionRef) =>
         q.CreateIndex({
           name: `unique_${this.name}_${fieldName}`,
           source: collectionRef,
           unique: true,
           terms: [{ field: ['data', fieldName] }],
         })
-      ).get()
-    )(this.ref)
+      )(this.ref)
+    )
   }
 
   documents() {
     return Query.from(q.Documents(this.ref))
   }
 
-  findById(id: string) {
+  drop() {
+    return Query.from(q.Delete(this.ref))
+  }
+
+  findById(id) {
     return Query.from(q.Ref(this.ref, id))
   }
 
@@ -47,15 +48,11 @@ export class Collection {
   }
 }
 
-export const Index = (name: string) => ({
-  name,
-  query: (...terms: Expr[]) => Query.from(q.Match(q.Index(name, terms))),
-})
+module.exports = {
+  Collection,
+}
 
-// export const Collection = ''
-// export const Index = ''
-
-const User = new Collection('User')
+// const User = new Collection('User')
 
 // const do = [
 //   User.getOrCreate().update().
