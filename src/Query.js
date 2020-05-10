@@ -11,7 +11,7 @@ const {
   mod,
   set,
   all,
-} = require('../lens')
+} = require('./lens')
 
 class Query {
   constructor(expr, lenses) {

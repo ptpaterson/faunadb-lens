@@ -11,15 +11,10 @@ const compose = (...lenses) => ({
   mod: mod(...lenses),
 })
 
-const append = () => ({
-  get: (arr) => arr,
-  mod: (f) => (arr, ...args) => q.Append(arr, f(arr, ...args)),
-})
-
 const documents = () => ({
-  get: (collectionRef) => q.Documents(collectionRef),
+  get: (collectionRef) => q.Paginate(q.Documents(collectionRef)),
   mod: (f) => (collectionRef, ...args) =>
-    f(q.Documents(collectionRef), ...args),
+    f(q.Paginate(q.Documents(collectionRef)), ...args),
 })
 
 const deref = () => ({
@@ -32,40 +27,30 @@ const paginate = (options) => ({
   mod: (f) => (set, ...args) => f(q.Paginate(set), ...args),
 })
 
-const prop = (name, def) => ({
+const prop = (name, def = null) => ({
   get: (obj) => q.Select(name, obj, def),
   mod: (f) => (obj, ...args) =>
-    q.Merge(obj, { [name]: f(q.Select(name, obj, def), ...args) }),
+    q.Let(
+      {
+        maybeRef: obj,
+      },
+      q.If(
+        q.IsRef(q.Var('maybeRef')),
+        q.Update(q.Var('maybeRef'), q.Merge(obj, { [name]: f(q.Select(name, obj, def), ...args) }))
+        q.Merge(obj, { [name]: f(q.Select(name, obj, def), ...args) })
+      )
+    ),
 })
 
 const path = (...names) => compose(...names.map((name) => prop(name)))
 
-const push = () => ({
-  get: (arr) => arr,
-  mod: (f) => (arr, ...args) => q.Append(arr, [f(arr, ...args)]),
-})
-
-const update = () => ({
-  get: (obj) => obj,
-  mod: (f) => (obj, ...args) =>
-    q.If(
-      q.IsRef(obj),
-      q.Update(obj, f(obj, ...args)),
-
-      q.Update(q.Select('ref', obj), f(obj, ...args))
-    ),
-})
-
 module.exports = {
-  append,
   documents,
   deref,
   paginate,
   prop,
   path,
   compose,
-  push,
-  update,
   get,
   mod,
   set,
