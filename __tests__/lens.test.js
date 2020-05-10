@@ -20,7 +20,7 @@ describe('Build and Test on a new DB', () => {
       )
     ).secret
     console.log(childSecret)
-    childClient = new Client({ secret: childSecret })
+    childClient = await new Client({ secret: childSecret })
   })
 
   afterAll(() => {

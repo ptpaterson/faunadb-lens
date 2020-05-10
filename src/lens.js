@@ -27,12 +27,6 @@ const deref = () => ({
   mod: (f) => (ref, ...args) => f(q.Get(ref), ...args),
 })
 
-// const index = (name, ...moreTerms) => ({
-//   get: (obj) => q.Match(q.Index(name), [obj, ...moreTerms]),
-//   mod: (f) => (obj, ...args) =>
-//     f(q.Match(q.Index(name), [obj, ...moreTerms]), ...args),
-// })
-
 const paginate = (options) => ({
   get: (set) => q.Paginate(set, options),
   mod: (f) => (set, ...args) => f(q.Paginate(set), ...args),
