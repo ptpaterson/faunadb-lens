@@ -1,6 +1,6 @@
 const {
   append,
-  deref,
+  getRef,
   documents,
   paginate,
   path,
@@ -31,8 +31,8 @@ class Query {
     return new Query(this.expr, [...this.lenses, append()])
   }
 
-  deref() {
-    return new Query(this.expr, [...this.lenses, deref()])
+  getRef() {
+    return new Query(this.expr, [...this.lenses, getRef()])
   }
 
   documents() {

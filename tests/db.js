@@ -49,6 +49,10 @@ const users = [
   },
 ]
 
+const store = {
+  users,
+}
+
 const createTestDB = async () => {
   try {
     const { secret } = await adminClient.query(
@@ -68,7 +72,14 @@ const createTestDB = async () => {
     const client = new Client({ secret })
     await client.query(q.CreateCollection({ name: 'User' }))
     await client.query(
-      q.Map(users, (user) => q.Create(q.Collection('User'), { data: user }))
+      q.Let(
+        {
+          '0': q.Create(q.Collection('User'), { data: users[0] }),
+          '1': q.Create(q.Collection('User'), { data: users[1] }),
+          '2': q.Create(q.Collection('User'), { data: users[2] }),
+        },
+        true
+      )
     )
 
     return {
@@ -89,4 +100,5 @@ const createTestDB = async () => {
 
 module.exports = {
   createTestDB,
+  store,
 }

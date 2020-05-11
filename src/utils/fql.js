@@ -1,4 +1,4 @@
-const { query: q } = require('faunadb')
+const { query: q, Expr } = require('faunadb')
 const annotate = require('fn-annotate')
 
 /* converts a function into a faunaDB Let expression, but allows it to be used,
@@ -34,7 +34,17 @@ const objectValues = (obj) => q.Map(q.ToArray(obj), (_, value) => value)
 const refOrAbort = (message) =>
   fnToLet((ref) => q.If(q.Exists(ref), ref, q.Abort(message)))
 
+const concatMapped = (f) => (mapExpr) =>
+  new Expr({
+    collection: mapExpr.raw.collection,
+    map: new Expr({
+      lambda: mapExpr.raw.map.raw.lambda,
+      expr: f(mapExpr.raw.map.raw.expr),
+    }),
+  })
+
 module.exports = {
+  concatMapped,
   fnToLet,
   mergeNullable,
   objectKeys,

@@ -1,24 +1,21 @@
 const {
-  append,
   documents,
-  deref,
+  getRef,
   paginate,
   prop,
   path,
   compose,
-  push,
-  update,
   get,
   mod,
   set,
   all,
 } = require('./lens')
 const { Query } = require('./Query')
-const { fill, fnToLet, projection } = require('./utils')
+const { concatMapped, fill, fnToLet, projection } = require('./utils')
 
 module.exports = {
   documents,
-  deref,
+  getRef,
   paginate,
   prop,
   path,
@@ -30,6 +27,7 @@ module.exports = {
 
   Query,
 
+  concatMapped,
   fill,
   fnToLet,
   projection,
@@ -40,14 +38,6 @@ const { Client, query: q } = require('faunadb')
 const secret = process.env.FAUNADB_ADMIN_KEY
 if (!secret) process.exit(1)
 const client = new Client({ secret })
-
-// const tested = [1, 2, 3]
-// const expected = [1, 2, 3, 4]
-// const setQuery = set(append())([4])(tested)
-// client
-//   .query(setQuery)
-//   .then((res) => console.log(JSON.stringify(res, null, 2)))
-//   .catch((e) => console.error(e))
 
 // const getQuery = q.Let(
 //   {
@@ -62,23 +52,24 @@ const client = new Client({ secret })
 //   .then((res) => console.log(JSON.stringify(res, null, 2)))
 //   .catch((e) => console.error(e))
 
-// const getQuery = q.mod
-//   (documents(), page(), data(), path(0, 'tags'))
-//   (cons('cool peoples'))
-//   (collection('User'))
+// const query = get(
+//   documents(),
+//   all(),
+//   getRef(),
+//   path('data', 'traits', 'hair')
+// )(q.Collection('User'))
+// console.log(JSON.stringify(query, null, 2))
+
 // client
-//   .query(getQuery)
+//   .query(query)
 //   .then((res) => console.log(JSON.stringify(res, null, 2)))
 //   .catch((e) => console.error(e))
 
-const query = get(
-  documents(),
-  all(),
-  deref(),
-  path('data', 'name')
-)(q.Collection('User'))
+// const query = q.Map([1, 2, 3], (x) => q.Add(x, 10))
 
-client
-  .query(query)
-  .then((res) => console.log(JSON.stringify(res, null, 2)))
-  .catch((e) => console.error(e))
+// const newQuery = concatMapped((x) => q.Multiply(x, 10))(query)
+// console.log(JSON.stringify(q.Format('%@', newQuery), null, 2))
+// client
+//   .query(newQuery)
+//   .then((res) => console.log(JSON.stringify(res, null, 2)))
+//   .catch((e) => console.error(e))

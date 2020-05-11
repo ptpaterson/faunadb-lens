@@ -1,9 +1,11 @@
 const { query: q, Expr } = require('faunadb')
 const { all, get, mod, set } = require('shades')
 
+const { concatMapped } = require('./utils')
+
 // Modify the Expr class to work be an iterator for shades
 Expr.prototype.map = function (f) {
-  return q.Map(this, f)
+  return this.raw && this.raw.map ? concatMapped(f)(this) : q.Map(this, f)
 }
 
 const compose = (...lenses) => ({
@@ -12,13 +14,26 @@ const compose = (...lenses) => ({
 })
 
 const documents = () => ({
-  get: (collectionRef) => q.Paginate(q.Documents(collectionRef)),
+  get: (collectionRef) => {
+    return q.Let(
+      { maybeCollectionRef: collectionRef },
+      q.If(
+        q.IsRef(q.Var('maybeCollectionRef')),
+        q.Paginate(q.Documents(q.Var('maybeCollectionRef'))),
+        q.Select('data', q.Var('maybeCollectionRef'), null) // when viewing the result of a mod
+      )
+    )
+  },
   mod: (f) => (collectionRef, ...args) =>
     f(q.Paginate(q.Documents(collectionRef)), ...args),
 })
 
-const deref = () => ({
-  get: (ref) => q.Get(ref),
+const getRef = () => ({
+  get: (ref) =>
+    q.Let(
+      { maybeRef: ref },
+      q.If(q.IsRef(q.Var('maybeRef')), q.Get(ref), q.Var('maybeRef'))
+    ),
   mod: (f) => (ref, ...args) => f(q.Get(ref), ...args),
 })
 
@@ -36,7 +51,7 @@ const prop = (name, def = null) => ({
       },
       q.If(
         q.IsRef(q.Var('maybeRef')),
-        q.Update(q.Var('maybeRef'), q.Merge(obj, { [name]: f(q.Select(name, obj, def), ...args) }))
+        q.Update(q.Var('maybeRef'), f(obj)),
         q.Merge(obj, { [name]: f(q.Select(name, obj, def), ...args) })
       )
     ),
@@ -46,7 +61,7 @@ const path = (...names) => compose(...names.map((name) => prop(name)))
 
 module.exports = {
   documents,
-  deref,
+  getRef,
   paginate,
   prop,
   path,

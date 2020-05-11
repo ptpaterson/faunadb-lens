@@ -1,9 +1,10 @@
 const { query: q } = require('faunadb')
-const { createTestDB } = require('./db')
+const { createTestDB, store } = require('./db')
 const {
   all,
+  compose,
   documents,
-  deref,
+  getRef,
   paginate,
   path,
   prop,
@@ -11,6 +12,8 @@ const {
   mod,
   set,
 } = require('../src')
+
+const concatBar = (x) => q.Concat([x, 'bar'])
 
 describe('Build and Test on a new DB', () => {
   let db
@@ -33,78 +36,69 @@ describe('Build and Test on a new DB', () => {
     expect(result.result).toBe(true)
   })
 
+  // **************************************************************************
+  // **************************************************************************
+  // **************************************************************************
+
   describe('prop(name)', () => {
-    const tested = { foo: 'qux' }
-    const lens = prop('foo')
+    // note this does not update the database, only creates a working copy
+    const tested = q.Get(q.Documents(q.Collection('User')))
+    const lens = path('data', 'name') // path = prop, prop, prop...
 
-    it('can be used with "get"', async () => {
-      const expected = 'qux'
-      const query = q.Let({ tested }, get(lens)(q.Var('tested')))
-      const result = await db.client.query(query)
-      expect(result).toEqual(expected)
-    })
-
-    it('can be used with "mod"', async () => {
-      const expected = { foo: 'quxbar' }
-      const query = q.Let(
-        { tested },
-        mod(lens)((x) => q.Concat([x, 'bar']))(q.Var('tested'))
-      )
-      const result = await db.client.query(query)
-      expect(result).toEqual(expected)
-    })
-
-    it('can be used with "set"', async () => {
-      const expected = { foo: 'bar' }
-      const query = q.Let({ tested }, set(lens)('bar')(q.Var('tested')))
+    it('can "get" the focus', async () => {
+      const expected = 'Jack Sparrow'
+      const query = get(lens)(tested)
       const result = await db.client.query(query)
       expect(result).toEqual(expected)
     })
 
     it('obeys first law', async () => {
       const expected = 'bar'
-      const query = q.Let(
-        {
-          tested,
-        },
-        get(lens)(set(lens)('bar')(q.Var('tested')))
-      )
+      const query = get(lens)(set(lens)('bar')(tested))
+
+      const result = await db.client.query(query)
+      expect(result).toEqual(expected)
+    })
+
+    it('obeys first law with "mod"', async () => {
+      const expected = 'Jack Sparrowbar'
+      const query = get(lens)(mod(lens)(concatBar)(tested))
+
       const result = await db.client.query(query)
       expect(result).toEqual(expected)
     })
 
     it('obeys second law', async () => {
-      const expected = { foo: 'bar' }
-      const query = q.Let(
-        {
-          tested,
-        },
-        set(lens)('bar')(set(lens)('quux')(q.Var('tested')))
-      )
+      const expected = 'bar'
+      const query = set(lens)('bar')(set(lens)('quux')(tested))
+
       const result = await db.client.query(query)
-      expect(result).toEqual(expected)
+      expect(result.data.name).toEqual(expected)
     })
 
     it('obeys third law', async () => {
+      const expected = 'Jack Sparrow'
       const query = q.Let(
         {
           tested,
         },
-        set(lens)(get(lens)(q.Var('tested')))(q.Var('tested'))
+        set(lens)(get(lens)(tested))(tested)
       )
       const result = await db.client.query(query)
-      expect(result).toEqual(tested)
+      expect(result.data.name).toEqual(expected)
     })
   })
 
-  describe('documents()', () => {
-    it('can be used with "get"', async () => {
-      const query = get(
-        documents(),
-        all(),
-        deref(),
-        path('data', 'name')
-      )(q.Collection('User'))
+  // **************************************************************************
+  // **************************************************************************
+  // **************************************************************************
+
+  describe('documents, all, dref, and compose', () => {
+    const tested = q.Collection('User')
+    const lens = compose(documents(), all(), getRef(), path('data', 'name'))
+
+    it('can "get" the focus', async () => {
+      const query = get(lens)(tested)
       const expected = {
         data: ['Jack Sparrow', 'Elizabeth Swan', 'Bill Turner'],
       }
@@ -113,7 +107,46 @@ describe('Build and Test on a new DB', () => {
       expect(result).toEqual(expected)
     })
 
-    it.skip('makes no sense with "mod', () => {})
-    it.skip('makes no sense with "set', () => {})
+    it('obeys the first law', async () => {
+      const query = get(lens)(set(lens)('bar')(tested))
+      const expected = ['bar', 'bar', 'bar']
+
+      const result = await db.client.query(query)
+      expect(result).toEqual(expected)
+    })
+
+    it('obeys the first law with "mod"', async () => {
+      const query = get(lens)(mod(lens)(concatBar)(tested))
+      const expected = [
+        'Jack Sparrowbar',
+        'Elizabeth Swanbar',
+        'Bill Turnerbar',
+      ]
+
+      const result = await db.client.query(query)
+      expect(result).toEqual(expected)
+    })
+
+    it('disobeys second law, predictably', async () => {
+      const expected = 'bar'
+      const query = set(lens)('bar')(set(lens)('quux')(tested))
+
+      const result = await db.client.query(query)
+      expect(result).toEqual(expected)
+    })
+
+    it.only('disobeys third law, predictably', async () => {
+      const expected = [
+        ['Jack Sparrow', 'Elizabeth Swan', 'Bill Turner'],
+        ['Jack Sparrow', 'Elizabeth Swan', 'Bill Turner'],
+        ['Jack Sparrow', 'Elizabeth Swan', 'Bill Turner'],
+      ]
+      const query = set(lens)(get(lens)(tested))(tested)
+
+      const result = await db.client.query(query)
+      expect(get('data', all(), 'data', 'name', 'data')(result)).toEqual(
+        expected
+      )
+    })
   })
 })
